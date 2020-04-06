@@ -1,0 +1,151 @@
+---
+title: "Project 1"
+author: "Adam Seagle"
+date: "4/2/2020"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggplot2)
+library(readxl)
+library(dplyr)
+library(GGally)
+```
+  
+Import data:
+```{r}
+housing <- read_xlsx("Housing.xlsx")
+
+housing
+```
+
+#Data Summary: 
+
+**Find any missing values or values that may need clarification/modification**
+```{r}
+head(housing)
+summary(housing)
+```
+
+```{r}
+is.na(housing) #No missing values.
+```
+
+**Stats / Visuals for Categorical Varaibles**
+```{r}
+statusTable <- table(housing$status) #houses by status
+statusTable
+elemSchTable <- table(housing$elem) #houses by elementary school
+elemSchTable
+
+status_elemSch <- table(housing$status, housing$elem) #houses by status by elementary school
+```
+
+```{r}
+prop.table(statusTable) #percentages by status
+prop.table(elemSchTable) #percentages by district
+prop.table(status_elemSch) #precentage by district for status
+
+```
+
+```{r}
+ggplot(housing, aes(x = elem)) +
+        geom_bar() +
+        xlab("Elementary School District")
+
+ggplot(housing, aes(x = status)) +
+        geom_bar() +
+        xlab("House Status")
+```
+
+*Categorical variables to numeric values.*
+```{r}
+status = as.factor(housing$status)
+house = data.frame(housing, status)
+elem = as.factor(housing$elem)
+housing = data.frame(housing, elem)
+```
+
+
+
+#Explortory Data Analysis:
+```{r}
+ggplot(data = housing, mapping = aes(x = price)) +
+  geom_histogram(binwidth = 12)
+```
+
+```{r}
+ggpairs(housing, 1:9) #Scatterplot with correlations to help determine important predictors.
+
+pairs(~housing$price + housing$bedrooms + housing$lot + housing$size + housing$garagesize) #All the predictors that had at least a +-0.2 correlation to price.
+```
+
+```{r}
+ggplot(house, aes(x = price, y = bedrooms)) +
+  geom_point(shape = 1) + 
+  geom_smooth()
+
+ggplot(house, aes(x = price, y = lot)) +
+  geom_point(shape = 1) + 
+  geom_smooth()
+
+ggplot(house, aes(x = price, y = size)) +
+  geom_point(shape = 1) + 
+  geom_smooth()
+
+ggplot(house, aes(x = price, y = garagesize)) +
+  geom_point(shape = 1) + 
+  geom_smooth()
+
+```
+
+#Initial Modeling:
+```{r}
+
+modelP1 <- lm(housing$price ~ housing$status + housing$elem + housing$size + housing$lot + housing$bath + housing$bedrooms + housing$yearbuilt + housing$agestandardized + housing$garagesize)
+summary(modelP1)
+
+#Took out a few predictors that had higher p-values
+modelP2 <- lm(housing$price ~ housing$status + housing$size + housing$lot + housing$bedrooms + housing$garagesize + housing$yearbuilt)
+summary(modelP2)
+
+#I took  out status because 2 of the three predictors that it accounted for had high p-values
+modelP3 <- lm(housing$price ~ housing$size + housing$lot + housing$garagesize + housing$yearbuilt + housing$bedrooms)
+summary(modelP3)
+
+#I kept garagesize and bedroms in the model because there p-values went down significantly and took  out yearbuilt due to its p-value getting higher.
+modelP4 <- lm(housing$price ~ housing$size + housing$lot + housing$garagesize + housing$bedrooms)
+summary(modelP4)
+
+```
+I ended up using this last model due to two main reasons. One of the reasons being that when I did the data analysis and the correlations these 4 predictors had the greatest effect on the price of a house. I also wanted to double check that what I was seeing in the data analysis was valid so I started with all the variables and started taking out variables that had high p-values or just didn't seem to be having much of an effect on the price (low Estimate values). In my last model I ended up having four predictors that all did not have the 5% p-value that we tend to look for but all of these predictors had a significant impact on the price.
+
+```{r}
+plot(modelP4) 
+```
+
+The above plots of my initial model are not bad but there were a few things that caught my attention. These two things were on the left side of the QQ Plot the data veered off of the straight line more than the right side did and that the Residuals vs Leverage plot never really falttened out. It keeps increasing as the line continues to the right.
+
+**Model Modification**
+```{r}
+modelP5 <- lm(housing$price ~ housing$size + housing$garagesize + housing$bedrooms)
+summary(modelP5)
+
+modelP6 <- lm(housing$price ~ housing$size + housing$bedrooms)
+summary(modelP6)
+
+plot(modelP6)
+```
+I started with the inital model (modelP4) that I made and saw that the predictor lot had the highest p-value and the smallest intercept value so I took it out of the model and noticed all the other predictors p-values dropped and the intercept p-value dropped. I did the same process again just with the garagesize predictor and once again the p-values dropped. I was then left with size and bedroooms as my two predictors both havin p-values less that 0.12 and my F-statistic went up. The R^2 value did get lower through this process due to taking out predictors but the final model still represents about 16% of the variation in the data set.
+
+The plots for this final model (modelP6) look similar to the ones for the initial model (modelP4). The final model Residuals vs Leverage plot does level off more than the initial models which is great. However, it did not seem to completely fix the QQ Plot deviation on the left side. It does seem to have made it marginally better by it coming back toward the straight line after veering off a little. 
+
+```{r}
+library(Rmisc)
+CI(housing$size, ci = 0.95)
+CI(housing$bedrooms, ci = 0.95)
+```
+
