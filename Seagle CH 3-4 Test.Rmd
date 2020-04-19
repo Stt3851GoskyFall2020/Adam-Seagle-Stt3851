@@ -1,0 +1,127 @@
+---
+title: "Seagle CH 3-4 Test"
+author: "Adam Seagle"
+date: "4/19/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(readxl)
+library(GGally)
+```
+1)
+```{r}
+CF <- read.csv("CFB2018completeISLR.csv")
+```
+
+```{r}
+library(tidyverse)
+
+cfb <- CF %>% select(4,6,7,9,12,13,15,18,19,21,24,25,27,30,31,33)
+```
+
+```{r}
+cor(cfb)
+```
+
+Based on the correlation matrix values above the single best predictor of Zsagarin, based on the potential predictors, is the Fravg predictor. I can tell this because Fravg has the hoghest correlation with the Zsagarin variable with a correlation of 0.568.
+
+```{r}
+CFmr <- lm(Zsagarin ~ Fravg + Soavg + Jravg, data = CF)
+summary(CFmr)
+```
+
+```{r}
+CFmr2 <- lm(Zsagarin ~ Fravg + Soavg + Jravg + conference, data = CF)
+summary(CFmr2)
+```
+Once I added the conference predictor to my model, I found that my R-squared value went up slightly but my F-statistic went down quite a bit. I believe this happened due to only one of the conferences being statistically significant while the others have very high p-values. I also saw that this left two of my three original predictors (Fravg and Jravg) with roughly the same p-value but decreases the p-value of my Soavg predictor. 
+
+```{r}
+library(car)
+
+vif(CFmr2)
+```
+For my model the Variance Inflation Factors are all below 5 so they are not concerning to me when I look at them. This tells me there is not siginificant multicollinearity within my model.
+
+```{r}
+plot(CFmr2)
+```
+I like the way that the above plots look for the most part. However, in the Residuals vs Fitted, Scale-Location and in the Residuals vs Leverage Plots I do see a slight decrease at the beginning but then it levels out. I would like to see if I could make it a straight line all the way across not just from the halfway point going forward. 
+
+```{r}
+
+CFmr3 <- lm(Zsagarin ~ Fravg + Jravg + Soavg:coachexp_school, data = CF)
+summary(CFmr3)
+```
+```{r}
+plot(CFmr3)
+```
+
+```{r}
+CFmr2 <- lm(Zsagarin ~ Fravg + Soavg + Jravg + conference, data = CF)
+summary(CFmr2)
+```
+
+I tried multiple things included power transformations but I ended up finding that the interaction terms seemed to benefit my R-squared value and lower my p-value more significantly. However, I ended up not adding an interaction term to the model due to it messing making the plots have some form of linearity to them. I played around with different interaction terms and from what I tested several had low p-values but most if not all made the plotss worse so I reverted back to my original model (CFmr2).
+
+2)
+
+```{r}
+donner <- read_xlsx("donner.xlsx")
+```
+
+```{r}
+train <- sample(45, 30, replace = FALSE)
+train
+
+traindata <- donner[train,]
+traindata
+
+testdata <- donner[-train,]
+testdata
+```
+
+```{r}
+training <- glm(Survived ~ Multifam + Sex + Age,family=binomial(link='logit'),data=traindata)
+summary(training)
+```
+
+```{r}
+probabilities <- predict(training, testdata, type = "response")
+probabilities
+
+prediction <- rep("Did Not Survive", 15)
+prediction[probabilities > 0.5] <- "Survived"
+
+
+table(prediction, testdata$Survived)  
+
+```
+
+This model was a decent predictor of whether the set of travelers survived or died. This model got 11 out of 15 correct giving us the correct answer 73% of the time.
+
+
+```{r}
+library(class)
+
+trainingindex <- sample(nrow(donner), nrow(traindata), replace = FALSE)
+
+train <- cbind(donner$Multifam, donner$Sex, donner$Age)[trainingindex, ]
+
+test <- cbind(donner$Multifam, donner$Sex, donner$Age)[-trainingindex, ]
+
+class <- donner$Survived[trainingindex]
+
+knnpred <- knn(train, test, class, k = 1)
+
+knnpred <- factor(ifelse(knnpred == 1, "Survived", "Died"))
+table(knnpred, testdata$Survived)
+```
+Based on the above table the K Nearest Neighbors approach to this data gives us a worse percentage than the logistic regression. The K Nearest Neighbors correctly predicted 9 out of the 15 total tests giving us a percentage of 60%. This is lower than the logistic regression percentage of 73% by a significant percentage. In this case the logistic regression would be better to predict whether the members of the Donner Party survived or not on their travels.
